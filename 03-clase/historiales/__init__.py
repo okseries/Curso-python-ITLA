@@ -1,0 +1,2 @@
+from .historial_longitud import HistorialLongitud
+from .historial_temperatura import HistorialTemperatura
