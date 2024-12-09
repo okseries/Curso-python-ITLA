@@ -1,5 +1,7 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
+from tkinter.filedialog import asksaveasfilename, askopenfilename
+import csv
 from style.globalStyles import Colors
 from ui.createTaskWindow import CreateTaskWindow
 from gestorTarea.gestorTarea import GestorTarea
@@ -9,24 +11,18 @@ class MainApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Gestión de Tareas")
-        self.center_window(1100, 600)  # Centrar la ventana principal
+        self.center_window(1100, 600)
         self.root.config(bg=Colors.BACKGROUND_LIGHT)
-
-        # Configurar UI principal
         self.setup_ui()
 
     def center_window(self, width, height):
         """
         Centra la ventana principal en la pantalla.
-        :param width: Ancho de la ventana
-        :param height: Alto de la ventana
         """
         screen_width = self.root.winfo_screenwidth()
         screen_height = self.root.winfo_screenheight()
-
         x = (screen_width - width) // 2
         y = (screen_height - height) // 2
-
         self.root.geometry(f"{width}x{height}+{x}+{y}")
 
     def setup_ui(self):
@@ -34,7 +30,7 @@ class MainApp:
         container = tk.Frame(self.root, bg=Colors.BACKGROUND_LIGHT)
         container.pack(expand=True, fill="both")
 
-        # Título
+        # TITULO
         header = tk.Label(
             container,
             text="Gestión de Tareas",
@@ -45,6 +41,18 @@ class MainApp:
         header.pack(pady=10, fill="x")
 
         # Filtros
+        self.setup_filters(container)
+
+        # Listado de tareas
+        self.setup_task_list(container)
+
+        # Botones de acción
+        self.setup_buttons(container)
+
+        # Cargar tareas al iniciar
+        self.load_tasks()
+
+    def setup_filters(self, container):
         filter_frame = tk.Frame(container, bg=Colors.SECONDARY)
         filter_frame.pack(pady=10, padx=10, fill="x")
 
@@ -56,7 +64,7 @@ class MainApp:
             fg=Colors.TEXT_PRIMARY,
         ).grid(row=0, column=0, padx=10, pady=5, sticky="w")
 
-        self.title_filter = tk.Entry(filter_frame, font=("Roboto", 12), bg=Colors.BACKGROUND_LIGHT, fg=Colors.TEXT_PRIMARY, relief="flat")
+        self.title_filter = tk.Entry(filter_frame, font=("Roboto", 12))
         self.title_filter.grid(row=0, column=1, padx=10, pady=5, sticky="ew")
 
         tk.Label(
@@ -93,7 +101,6 @@ class MainApp:
         self.priority_filter.grid(row=0, column=5, padx=10, pady=5, sticky="ew")
         self.priority_filter.set("Todos")
 
-        # Botón de Filtrar
         filter_button = tk.Button(
             filter_frame,
             text="Aplicar Filtro",
@@ -105,173 +112,179 @@ class MainApp:
         )
         filter_button.grid(row=0, column=6, padx=10, pady=5)
 
-        # Listado de tareas
+    def setup_task_list(self, container):
         self.task_list = ttk.Treeview(
             container,
-            columns=("ID", "Título", "Descripción", "Estado", "Prioridad"),
+            columns=("ID", "TITULO", "DESCRIPCION", "ESTADO", "PRIORIDAD"),
             show="headings",
         )
-        self.task_list.heading("ID", text="ID")
-        self.task_list.heading("Título", text="Título")
-        self.task_list.heading("Descripción", text="Descripción")
-        self.task_list.heading("Estado", text="Estado")
-        self.task_list.heading("Prioridad", text="Prioridad")
-
-        # Ajustar tamaño de columnas
-        self.task_list.column("ID", width=50, anchor="w")
-        self.task_list.column("Título", width=200, anchor="w")
-        self.task_list.column("Descripción", width=300, anchor="w")
-        self.task_list.column("Estado", width=100, anchor="center")
-        self.task_list.column("Prioridad", width=100, anchor="center")
+        for col, width in [("ID", 50), ("TITULO", 200), ("DESCRIPCION", 300), ("ESTADO", 100), ("PRIORIDAD", 100)]:
+            self.task_list.heading(col, text=col)
+            self.task_list.column(col, width=width, anchor="center")
 
         self.task_list.pack(pady=10, padx=10, expand=True, fill="both")
-        
-        
-        # Contenedor principal para los botones (fila única)
-        action_container = tk.Frame(container)
-        action_container.pack(fill="x", pady=10, padx=10)
 
-        # Contenedor para botones CRUD (izquierda)
-        button_crud = tk.Frame(action_container, bg=Colors.BACKGROUND_LIGHT)
-        button_crud.pack(side="left", fill="x", expand=True )
+    def setup_buttons(self, container):
+        action_frame = tk.Frame(container, bg=Colors.BACKGROUND_LIGHT)
+        action_frame.pack(fill="x", pady=10, padx=10)
 
-        # Contenedor para botones Archivo (derecha)
-        button_file = tk.Frame(action_container, bg=Colors.BACKGROUND_LIGHT)
-        button_file.pack(side="left", fill="x", expand=True, )
-
-        # Botones CRUD
-        add_task_button = tk.Button(
-            button_crud,
+        tk.Button(
+            action_frame,
             text="Agregar",
             font=("Roboto", 14, "bold"),
             bg=Colors.SUCCESS,
             fg=Colors.WHITE,
             relief="flat",
             command=self.open_create_task_window,
-        )
-        add_task_button.pack(side="left", padx=5, ipadx=10, ipady=5)
+        ).pack(side="left", padx=5, ipadx=10, ipady=5)
 
-        edit_task_button = tk.Button(
-            button_crud,
+        tk.Button(
+            action_frame,
             text="Editar",
             font=("Roboto", 14, "bold"),
             bg=Colors.WARNING,
             fg=Colors.WHITE,
             relief="flat",
-            command=self.open_create_task_window,
-        )
-        edit_task_button.pack(side="left", padx=5, ipadx=10, ipady=5)
+            command=self.open_edit_task_window,
+        ).pack(side="left", padx=5, ipadx=10, ipady=5)
 
-        delete_task_button = tk.Button(
-            button_crud,
+        tk.Button(
+            action_frame,
             text="Eliminar",
             font=("Roboto", 14, "bold"),
             bg=Colors.ERROR,
             fg=Colors.WHITE,
             relief="flat",
             command=self.delete_task,
-        )
-        delete_task_button.pack(side="left", padx=5, ipadx=10, ipady=5)
+        ).pack(side="left", padx=5, ipadx=10, ipady=5)
 
-        # Botones Archivo
-        export_task_button = tk.Button(
-            button_file,
-            text="Exportar",
+        tk.Button(
+            action_frame,
+            text="Exportar csv",
             font=("Roboto", 14, "bold"),
-            bg=Colors.BUTTON_SECONDARY,
+            bg=Colors.BUTTON_PRIMARY,
             fg=Colors.WHITE,
             relief="flat",
-            command=self.open_create_task_window,
-        )
-        export_task_button.pack(side="right", padx=5, ipadx=10, ipady=5)
+            command=self.export_tasks,
+        ).pack(side="right", padx=5, ipadx=10, ipady=5)
 
-        import_task_button = tk.Button(
-            button_file,
-            text="Importar",
+        tk.Button(
+            action_frame,
+            text="Importar csv",
             font=("Roboto", 14, "bold"),
-            bg=Colors.BUTTON_SECONDARY,
+            bg=Colors.BUTTON_PRIMARY,
             fg=Colors.WHITE,
             relief="flat",
-            command=self.open_create_task_window,
-        )
-        import_task_button.pack(side="right", padx=5, ipadx=10, ipady=5)
+            command=self.import_tasks,
+        ).pack(side="right", padx=5, ipadx=10, ipady=5)
 
-        
-         # Cargar tareas al iniciar
-        self.load_tasks()
-    
-    def delete_task(self):
-        selected_items = self.task_list.selection()  # Obtener los ítems seleccionados
-        if not selected_items:
-            tk.messagebox.showerror("Error", "Por favor, selecciona una tarea para eliminar.")
-            return
-
-        confirm = tk.messagebox.askyesno("Eliminar Tarea", "¿Estás seguro de eliminar la tarea seleccionada?")
-        if confirm:
-            for item in selected_items:
-                task_values = self.task_list.item(item)["values"]
-                task_id = task_values[0]  # Asegúrate de que el ID está en la primera columna
-                success = GestorTarea.delete(task_id)
-                if success:
-                    self.task_list.delete(item)  # Elimina del Treeview
-                else:
-                    tk.messagebox.showerror("Error", f"No se pudo eliminar la tarea con ID: {task_id}")
-
-
-        
     def load_tasks(self):
-        """
-        Carga todas las tareas desde la base de datos y las muestra en el Treeview.
-        """
-        # Limpia la lista actual
-        for item in self.task_list.get_children():
-            self.task_list.delete(item)
-
-        # Obtén todas las tareas
+        self.task_list.delete(*self.task_list.get_children())
         tasks = GestorTarea.get_all()
         for task in tasks:
-            self.task_list.insert(
-                "", "end", values=(task.id, task.titulo, task.descripcion, task.estado, task.prioridad)
-            )
+            self.task_list.insert("", "end", values=(task.id, task.titulo, task.descripcion, task.estado, task.prioridad))
 
     def apply_filters(self):
-        """
-        Lógica para aplicar filtros en la base de datos y actualizar el Treeview.
-        """
         titulo = self.title_filter.get().strip()
         estado = self.status_filter.get()
         prioridad = self.priority_filter.get()
 
-        # Obtener tareas filtradas
         tasks = GestorTarea.get_all(titulo=titulo, estado=estado, prioridad=prioridad)
-        
-
-        # Actualizar el Treeview
-        self.task_list.delete(*self.task_list.get_children())  # Limpiar el Treeview actual
+        self.task_list.delete(*self.task_list.get_children())
         for task in tasks:
+            print(task)
             self.task_list.insert("", "end", values=(task.id, task.titulo, task.descripcion, task.estado, task.prioridad))
 
-            """
-            Lógica para filtrar tareas por título, estado y prioridad.
-            """
-            title = self.title_filter.get().lower()
-            status = self.status_filter.get()
-            priority = self.priority_filter.get()
+    def delete_task(self):
+        selected_items = self.task_list.selection()
+        if not selected_items:
+            messagebox.showerror("Error", "Selecciona una tarea para eliminar.")
+            return
 
-            # Lógica de filtrado se conectará con la base de datos.
-            print(f"Filtrando por título: {title}, estado: {status}, prioridad: {priority}")
+        confirm = messagebox.askyesno("Eliminar Tarea", "¿Estás seguro de eliminar la tarea seleccionada?")
+        if confirm:
+            for item in selected_items:
+                task_id = self.task_list.item(item)["values"][0]
+                if GestorTarea.delete(task_id):
+                    self.task_list.delete(item)
+                else:
+                    messagebox.showerror("Error", f"No se pudo eliminar la tarea con ID: {task_id}")
 
     def open_create_task_window(self):
-        def save_callback(id, title, description, status, priority):
-            # Agrega la tarea al listado y opcionalmente a la base de datos
-            print(f"Tarea guardada: {id}, {title}, {description}, {status}, {priority}")
-            self.task_list.insert("", "end", values=(id, title, description, status, priority))
+        def save_callback(id, titulo, descripcion, estado, prioridad):
+            self.load_tasks()
 
         CreateTaskWindow(self.root, save_callback)
 
+    def open_edit_task_window(self):
+        """
+        Abre una ventana para editar la tarea seleccionada.
+        """
+        selected_items = self.task_list.selection()
+        if not selected_items:
+            messagebox.showerror("Error", "Selecciona una tarea para editar.")
+            return
+
+        task_id = self.task_list.item(selected_items[0])["values"][0]
+        task = GestorTarea.get_by_id(task_id)  # Asegúrate de tener este método implementado
+
+        if not task:
+            messagebox.showerror("Error", "No se encontró la tarea seleccionada.")
+            return
+
+        def save_callback(titulo, descripcion, estado, prioridad):
+            """
+            Callback para guardar cambios de la tarea.
+            """
+            success = GestorTarea.update(task_id, titulo=titulo, descripcion=descripcion, estado=estado, prioridad=prioridad)
+            if success:
+                messagebox.showinfo("Éxito", "Tarea actualizada correctamente.")
+                self.load_tasks()  # Recargar tareas en la tabla
+            else:
+                messagebox.showerror("Error", "No se pudo actualizar la tarea.")
+
+        # Crear ventana de edición con datos iniciales
+        CreateTaskWindow(self.root, save_callback, initial_data={
+            "titulo": task.titulo,
+            "descripcion": task.descripcion,
+            "estado": task.estado,
+            "prioridad": task.prioridad,
+        })
+
+
+    def export_tasks(self):
+        file_path = asksaveasfilename(defaultextension=".csv", filetypes=[("CSV files", "*.csv")])
+        if not file_path:
+            return
+
+        with open(file_path, mode="w", newline="", encoding="utf-8") as file:
+            writer = csv.writer(file)
+            writer.writerow(["ID", "TITULO", "DESCRIPCION", "ESTADO", "PRIORIDAD"])
+            for row in self.task_list.get_children():
+                writer.writerow(self.task_list.item(row)["values"])
+
+        messagebox.showinfo("Éxito", f"Tareas exportadas a {file_path}")
+
+    def import_tasks(self):
+        file_path = askopenfilename(filetypes=[("CSV files", "*.csv")])
+        if not file_path:
+            return
+
+        with open(file_path, mode="r", newline="", encoding="utf-8") as file:
+            reader = csv.DictReader(file)
+            for row in reader:
+                GestorTarea.create(
+                    titulo=row["TITULO"],
+                    descripcion=row["DESCRIPCION"],
+                    estado=row["ESTADO"],
+                    prioridad=row["PRIORIDAD"],
+                )
+
+        messagebox.showinfo("Éxito", "Tareas importadas correctamente.")
+        self.load_tasks()
+
 
 if __name__ == "__main__":
-    from style.globalStyles import Colors  # Asegúrate de tener esta clase configurada
     root = tk.Tk()
     app = MainApp(root)
     root.mainloop()
