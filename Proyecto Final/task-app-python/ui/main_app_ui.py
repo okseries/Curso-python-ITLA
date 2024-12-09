@@ -4,6 +4,7 @@ from tkinter.filedialog import asksaveasfilename, askopenfilename
 import csv
 from style.globalStyles import Colors
 from ui.createTaskWindow import CreateTaskWindow
+from ui.editTaskWindow import EditTaskWindow
 from gestorTarea.gestorTarea import GestorTarea
 
 
@@ -185,15 +186,22 @@ class MainApp:
             self.task_list.insert("", "end", values=(task.id, task.titulo, task.descripcion, task.estado, task.prioridad))
 
     def apply_filters(self):
+        """
+        Aplica los filtros seleccionados por el usuario y actualiza el TreeView.
+        """
         titulo = self.title_filter.get().strip()
         estado = self.status_filter.get()
         prioridad = self.priority_filter.get()
 
+        # Ajustar valores para coincidir con la base de datos
+        estado = None if estado == "Todos" else estado
+        prioridad = None if prioridad == "Todos" else prioridad
+
         tasks = GestorTarea.get_all(titulo=titulo, estado=estado, prioridad=prioridad)
         self.task_list.delete(*self.task_list.get_children())
         for task in tasks:
-            print(task)
             self.task_list.insert("", "end", values=(task.id, task.titulo, task.descripcion, task.estado, task.prioridad))
+
 
     def delete_task(self):
         selected_items = self.task_list.selection()
@@ -215,6 +223,8 @@ class MainApp:
             self.load_tasks()
 
         CreateTaskWindow(self.root, save_callback)
+        
+        
 
     def open_edit_task_window(self):
         """
@@ -226,8 +236,9 @@ class MainApp:
             return
 
         task_id = self.task_list.item(selected_items[0])["values"][0]
-        task = GestorTarea.get_by_id(task_id)  # Asegúrate de tener este método implementado
 
+        # Obtener la tarea por ID
+        task = GestorTarea.get_by_id(task_id)
         if not task:
             messagebox.showerror("Error", "No se encontró la tarea seleccionada.")
             return
@@ -243,13 +254,37 @@ class MainApp:
             else:
                 messagebox.showerror("Error", "No se pudo actualizar la tarea.")
 
-        # Crear ventana de edición con datos iniciales
-        CreateTaskWindow(self.root, save_callback, initial_data={
+        # Abrir la ventana para editar
+        EditTaskWindow(self.root, save_callback, initial_data={
             "titulo": task.titulo,
             "descripcion": task.descripcion,
             "estado": task.estado,
             "prioridad": task.prioridad,
         })
+
+        
+        
+        
+    def mark_task_as_completed(self):
+        """
+        Marca la tarea seleccionada como completada.
+        """
+        selected_items = self.task_list.selection()
+        if not selected_items:
+            messagebox.showerror("Error", "Selecciona una tarea para marcar como completada.")
+            return
+
+        for item in selected_items:
+            task_id = self.task_list.item(item)["values"][0]
+            success = GestorTarea.mark_as_completed(task_id)
+            if success:
+                messagebox.showinfo("Éxito", f"Tarea con ID {task_id} marcada como completada.")
+            else:
+                messagebox.showerror("Error", f"No se pudo completar la tarea con ID: {task_id}")
+
+        self.load_tasks()  # Recargar tareas en la tabla
+
+
 
 
     def export_tasks(self):

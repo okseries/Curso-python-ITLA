@@ -39,10 +39,10 @@ class GestorTarea:
         if titulo:
             query += " AND titulo LIKE ?"
             params.append(f"%{titulo}%")
-        if estado and estado != "Todos":
+        if estado:
             query += " AND estado = ?"
             params.append(estado)
-        if prioridad and prioridad != "Todos":
+        if prioridad:
             query += " AND prioridad = ?"
             params.append(prioridad)
 
@@ -53,26 +53,34 @@ class GestorTarea:
             tasks = [Task(*row) for row in rows]
             return tasks
         except Exception as e:
-            print(f"Error obteniendo todas las tareas con filtros: {e}")
+            print(f"Error obteniendo tareas con filtros: {e}")
             return []
         finally:
             db.close()
             
-            db = Database()
-            query = """
-            SELECT * FROM task
-            """
-            try:
-                cursor = db.connection.cursor()
-                cursor.execute(query)
-                rows = cursor.fetchall()
-                tasks = [Task(*row) for row in rows]
-                return tasks
-            except Exception as e:
-                print(f"Error obteniendo todas las tareas: {e}")
-                return []
-            finally:
-                db.close()
+    @staticmethod
+    def get_by_id(task_id):
+        """
+        Obtiene una tarea específica por su ID.
+        """
+        db = Database()
+        query = """
+        SELECT * FROM task WHERE id = ?
+        """
+        try:
+            cursor = db.connection.cursor()
+            cursor.execute(query, (task_id,))
+            row = cursor.fetchone()
+            if row:
+                return Task(*row)  # Crear un objeto Task a partir del resultado
+            return None  # Devolver None si no se encuentra la tarea
+        except Exception as e:
+            print(f"Error obteniendo la tarea con ID {task_id}: {e}")
+            return None
+        finally:
+            db.close()
+
+
 
     @staticmethod
     def get_by_estado(estado):
@@ -153,7 +161,7 @@ class GestorTarea:
     def mark_as_completed(task_id):
         db = Database()
         query = """
-        UPDATE task SET estado = 'completada' WHERE id = ?
+        UPDATE task SET estado = 'Completada' WHERE id = ?
         """
         try:
             cursor = db.connection.cursor()
@@ -165,3 +173,4 @@ class GestorTarea:
             return False
         finally:
             db.close()
+
